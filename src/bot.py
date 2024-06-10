@@ -1,11 +1,12 @@
 from typing import Optional, Dict
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, InlineQueryHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, InlineQueryHandler, \
+    MessageHandler, filters
 from google.cloud import firestore
 import logging
 import sys
 
-from app_config import TELEGRAM_BOT_TOKEN
+from app_config import TELEGRAM_BOT_TOKEN, FIRESTORE_CREDENTIAL_PATH, FIRESTORE_PROJECT_ID
 
 # Define constants for states
 NOT_STARTED = 1
@@ -14,31 +15,19 @@ USER_NOT_REGISTERED = 3
 USER_REGISTERED = 4
 
 # Initialize Firestore
-db = firestore.Client()
+db = firestore.Client.from_service_account_json(
+    json_credentials_path=FIRESTORE_CREDENTIAL_PATH,
+    project=FIRESTORE_PROJECT_ID
+)
 
 # State management dictionary
 user_states: Dict[int, int] = {}
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, filename="./logs/telegram_bot.log", filemode="w")
+logging.basicConfig(level=logging.INFO, filename="../logs/telegram_bot.log", filemode="w")
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler(sys.stdout))  # defaults to sys.stderr
 
-def initialize_client(project_id: str, credential_path: str):
-    """
-    Initialize Firestore client for a given project.
-
-    Parameters:
-    project_id (str): Project ID for Firestore
-    credential_path (str, optional): Path to the service account key JSON file
-
-    Returns:
-    Firestore Client
-    """
-    if credential_path:
-        return firestore.Client.from_service_account_json(credential_path, project=project_id)
-    else:
-        return firestore.Client(project=project_id)
 
 # Handle start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -47,8 +36,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('Bot started. Use the inline command to proceed.')
     logger.info(f"User {user_id} started the bot.")
 
+
 # Handle inline command
 async def inline_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info(f"inline command received {update.message.text}")
     query = update.inline_query.query.split()
     if len(query) != 2:
         return
@@ -68,8 +59,10 @@ async def inline_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user_states[user_id] = USER_REGISTERED
         await send_affiliate_link(user_id, merchant_name, context)
 
+
 # Handle user registration
 async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info(f"Register user received {update.message.text}")
     user_id = update.message.from_user.id
     email = update.message.text.strip()
 
@@ -83,6 +76,7 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_states[user_id] = USER_REGISTERED
     await update.message.reply_text('Registration successful! Now you can use the inline command.')
     logger.info(f"User {user_id} registered with email {email}.")
+
 
 # Send affiliate link
 async def send_affiliate_link(user_id: int, merchant_name: str, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -98,8 +92,10 @@ async def send_affiliate_link(user_id: int, merchant_name: str, context: Context
     tracking_link = generate_tracking_link(affiliate_link_data, heymax_user_id)
     keyboard = [[InlineKeyboardButton("Your Unique Shop with Max Link", url=tracking_link)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await context.bot.send_message(chat_id=user_id, text="Here is your unique affiliate link:", reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=user_id, text="Here is your unique affiliate link:",
+                                   reply_markup=reply_markup)
     logger.info(f"Sent affiliate link to user {user_id} for merchant {merchant_name}.")
+
 
 # Generate tracking link based on platform
 def generate_tracking_link(affiliate_data: Dict[str, str], user_id: str) -> str:
@@ -122,33 +118,30 @@ def generate_tracking_link(affiliate_data: Dict[str, str], user_id: str) -> str:
 
     return platform_links.get(source_platform, tracking_link)
 
+
 # Database interaction functions
 def get_user_data(user_id: int) -> Optional[Dict[str, str]]:
-    db = initialize_client("heymax-shop-telegram-bot",
-                           "./heymax-shop-telegram-bot-firebase-adminsdk-oqjrg-f8eabb340e.json")
     doc = db.collection('user_profile_telegram').document(str(user_id)).get()
     return doc.to_dict() if doc.exists else None
 
+
 def save_user_data(user_id: int, email: str, heymax_user_id: str) -> None:
-    db = initialize_client("heymax-shop-telegram-bot",
-                           "./heymax-shop-telegram-bot-firebase-adminsdk-oqjrg-f8eabb340e.json")
     db.collection('user_profile_telegram').document(str(user_id)).set({
         'telegram_user_id': user_id,
         'email': email,
         'heymax_user_id': heymax_user_id
     })
 
+
 def get_heymax_user_id_by_email(email: str) -> Optional[str]:
-    db = initialize_client("heymax-shop-telegram-bot",
-                           "./heymax-shop-telegram-bot-firebase-adminsdk-oqjrg-f8eabb340e.json")
     docs = db.collection('user_profile_telegram').where('email', '==', email).get()
     return docs[0].get('heymax_user_id') if docs else None
 
+
 def get_affiliate_link_data(merchant_name: str) -> Optional[Dict[str, str]]:
-    db = initialize_client("heymax-shop-telegram-bot",
-                           "./heymax-shop-telegram-bot-firebase-adminsdk-oqjrg-f8eabb340e.json")
     doc = db.collection('affiliate_links_telegram').document(merchant_name).get()
     return doc.to_dict() if doc.exists else None
+
 
 # Main function to start the bot
 def main() -> None:
@@ -167,6 +160,7 @@ def main() -> None:
     application.add_handler(registration_handler)
 
     application.run_polling()
+
 
 if __name__ == '__main__':
     main()
