@@ -90,7 +90,7 @@ python main.py
 2. The bot checks if the user is registered:
    - If **not registered**, the bot sends a direct message requesting email registration.
    - If **registered**, the bot retrieves the user's unique affiliate tracking link.
-3. The bot responds with a **"Your Unique Shop with Max Link"** button.
+3. The bot responds with a **"Your Unique Shop Link"** button.
 4. When clicked, the button opens the **user’s unique affiliate tracking link** in a browser.
 
 ## Code Structure
