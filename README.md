@@ -31,12 +31,6 @@ This Telegram bot solves these issues by allowing users to generate tracking lin
 - **User Registration & Validation**: Checks if the user is registered and prompts for registration if needed.
 - **Affiliate Link Generation**: Creates a tracking link unique to each user and merchant.
 - **Firestore Database Integration**: Stores and retrieves user data for seamless tracking.
-- **State Management**: Ensures smooth user interactions with different states:
-  1. Not Started
-  2. Received Merchant Command
-  3. User Not Registered
-  4. User Registered
-  5. Sent Unique Tracking Link
 
 ## Requirements
 
@@ -51,7 +45,7 @@ This Telegram bot solves these issues by allowing users to generate tracking lin
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/telegram-affiliate-bot.git
+   git clone https://github.com/calvindotsg/affiliate-shop-telegram-bot.git
    cd telegram-affiliate-bot
    ```
 
